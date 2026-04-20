@@ -1,0 +1,866 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ICS Multi Exporter + LLM Parser</title>
+  <style>
+    :root {
+      --bg: #0b1020;
+      --panel: #131a2e;
+      --panel-2: #1a2340;
+      --text: #eef2ff;
+      --muted: #aeb8d6;
+      --line: #2d3860;
+      --accent: #7aa2ff;
+      --ok: #88d498;
+      --warn: #ffd166;
+      --danger: #ff7b7b;
+      --input: #0f1730;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+      background: linear-gradient(180deg, #090d1a 0%, #0d1328 100%);
+      color: var(--text);
+    }
+    .wrap {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+    h1 {
+      margin: 0 0 8px;
+      font-size: 30px;
+    }
+    .sub {
+      color: var(--muted);
+      margin-bottom: 20px;
+      line-height: 1.5;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: 18px;
+    }
+    .card {
+      background: rgba(19, 26, 46, 0.95);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 18px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    }
+    .section-title {
+      font-size: 14px;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: var(--muted);
+      margin: 0 0 14px;
+    }
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+    .full { grid-column: 1 / -1; }
+    label {
+      display: block;
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+    input, select, textarea, button {
+      width: 100%;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      background: var(--input);
+      color: var(--text);
+      padding: 12px 13px;
+      font: inherit;
+    }
+    textarea { min-height: 120px; resize: vertical; }
+    .big-text { min-height: 270px; }
+    .inline {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .inline > * { width: auto; }
+    .actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 16px;
+    }
+    .actions button { width: auto; min-width: 150px; }
+    .btn-primary {
+      background: linear-gradient(180deg, #7aa2ff, #5d86e8);
+      color: #08101f;
+      font-weight: 700;
+      border: none;
+    }
+    .btn-secondary { background: var(--panel-2); }
+    .btn-danger { background: #3a1d2b; }
+    .muted {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+    .status {
+      margin-top: 14px;
+      font-size: 13px;
+      line-height: 1.5;
+      color: var(--muted);
+    }
+    .ok { color: var(--ok); }
+    .warn { color: var(--warn); }
+    .error { color: var(--danger); }
+    .hidden { display: none !important; }
+    .event-list {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      margin-top: 12px;
+    }
+    .event-item {
+      border: 1px solid var(--line);
+      background: #0f1730;
+      border-radius: 14px;
+      padding: 14px;
+    }
+    .event-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: flex-start;
+      flex-wrap: wrap;
+      margin-bottom: 10px;
+    }
+    .event-title {
+      font-weight: 700;
+      font-size: 16px;
+    }
+    .event-meta {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+    .tag-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 8px;
+      margin-bottom: 10px;
+    }
+    .tag {
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 5px 10px;
+      font-size: 12px;
+      color: var(--muted);
+      background: var(--panel-2);
+    }
+    .event-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 10px;
+    }
+    .event-actions button {
+      width: auto;
+      min-width: 120px;
+    }
+    .details-box, .preview-box {
+      margin-top: 12px;
+      border: 1px solid var(--line);
+      background: #0a1022;
+      border-radius: 12px;
+      padding: 12px;
+      white-space: pre-wrap;
+      line-height: 1.5;
+      font-size: 13px;
+    }
+    .preview-box {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      overflow: auto;
+      max-height: 320px;
+    }
+    .footer-note {
+      margin-top: 16px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    @media (max-width: 980px) {
+      .grid, .form-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>ICS Multi Exporter + LLM Parser</h1>
+    <div class="sub">
+      Lokale HTML-Seite zum Erzeugen mehrerer <strong>.ics</strong>-Dateien für Apple Kalender. Du kannst unstrukturierte Texte per Modell analysieren lassen. Jeder erkannte Termin wird einzeln dargestellt und bekommt einen eigenen Download-Button sowie einen Info-Button mit dem verarbeiteten Inhalt.
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <div class="section-title">LLM Eingabe</div>
+        <div class="form-grid">
+          <div class="full">
+            <label for="apiKey">API Key</label>
+            <input id="apiKey" type="password" placeholder="API Key lokal eingeben" />
+          </div>
+          <div>
+            <label for="baseUrl">Base URL</label>
+            <input id="baseUrl" type="text" value="https://api.hrz.uni-giessen.de" />
+          </div>
+          <div>
+            <label for="model">Modell</label>
+            <input id="model" type="text" value="openai/gpt-4o-mini" />
+          </div>
+          <div class="full inline">
+            <input id="saveKey" type="checkbox" />
+            <label for="saveKey" style="margin:0;">API-Key lokal im Browser speichern</label>
+          </div>
+          <div class="full">
+            <label for="rawInput">Rohtext für Terminextraktion</label>
+            <textarea id="rawInput" class="big-text" placeholder="Hier den Text einfügen, aus dem mehrere einzelne Termine extrahiert werden sollen."></textarea>
+          </div>
+        </div>
+
+        <div class="actions">
+          <button id="parseBtn" class="btn-primary">Termine mit LLM extrahieren</button>
+          <button id="useExampleBtn" class="btn-secondary">Beispieltext einsetzen</button>
+          <button id="clearAllBtn" class="btn-danger">Alles leeren</button>
+        </div>
+
+        <div id="status" class="status"></div>
+
+        <div class="footer-note">
+          Das Modell soll jeden Termin einzeln ausgeben. Für jeden Eintrag wird lokal eine eigene ICS-Datei erzeugt. Die Seite sendet nur den Text und deine Modelleinstellungen an die angegebene API. Der Export der ICS-Dateien selbst passiert rein lokal im Browser.
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="section-title">Manueller Einzeltermin</div>
+        <div class="form-grid">
+          <div class="full">
+            <label for="manualTitle">Titel</label>
+            <input id="manualTitle" type="text" placeholder="z. B. Prüfung" />
+          </div>
+          <div>
+            <label for="manualStartDate">Von – Datum</label>
+            <input id="manualStartDate" type="date" />
+          </div>
+          <div>
+            <label for="manualStartTime">Von – Uhrzeit</label>
+            <input id="manualStartTime" type="time" />
+          </div>
+          <div>
+            <label for="manualEndDate">Bis – Datum</label>
+            <input id="manualEndDate" type="date" />
+          </div>
+          <div>
+            <label for="manualEndTime">Bis – Uhrzeit</label>
+            <input id="manualEndTime" type="time" />
+          </div>
+          <div class="full inline">
+            <input id="manualAllDay" type="checkbox" />
+            <label for="manualAllDay" style="margin:0;">Ganztägig</label>
+          </div>
+          <div class="full">
+            <label for="manualLocation">Ort</label>
+            <input id="manualLocation" type="text" placeholder="optional" />
+          </div>
+          <div class="full">
+            <label for="manualDescription">Beschreibung</label>
+            <textarea id="manualDescription" placeholder="optional"></textarea>
+          </div>
+          <div>
+            <label for="manualAlarm">Erinnerung</label>
+            <select id="manualAlarm">
+              <option value="">Keine</option>
+              <option value="5">5 Minuten vorher</option>
+              <option value="10">10 Minuten vorher</option>
+              <option value="15">15 Minuten vorher</option>
+              <option value="30">30 Minuten vorher</option>
+              <option value="60">1 Stunde vorher</option>
+              <option value="1440">1 Tag vorher</option>
+            </select>
+          </div>
+          <div>
+            <label for="manualFilename">Dateiname</label>
+            <input id="manualFilename" type="text" placeholder="optional" />
+          </div>
+        </div>
+
+        <div class="actions">
+          <button id="addManualBtn" class="btn-secondary">Manuellen Termin hinzufügen</button>
+        </div>
+
+        <div class="footer-note">
+          Dieser Bereich bleibt als Fallback erhalten. Du kannst also auch ohne LLM einzelne Termine hinzufügen und dann zusammen mit den extrahierten Terminen exportieren.
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:18px;">
+      <div class="section-title">Erkannte Termine</div>
+      <div class="muted">Jeder Termin wird separat behandelt. Pro Eintrag gibt es Info, ICS-Vorschau und einen eigenen Download.</div>
+      <div id="eventList" class="event-list"></div>
+      <div id="emptyState" class="footer-note">Noch keine Termine vorhanden.</div>
+    </div>
+  </div>
+
+  <script>
+    const STORAGE_KEYS = {
+      apiKey: 'ics_multi_exporter_api_key',
+      saveKey: 'ics_multi_exporter_save_key',
+      baseUrl: 'ics_multi_exporter_base_url',
+      model: 'ics_multi_exporter_model',
+      rawInput: 'ics_multi_exporter_raw_input'
+    };
+
+    const exampleText = `Hier sind die extrahierten Daten:
+
+Kurzinformation:
+Das Wahlfach dient der Vorbereitung auf die eigene Promotion. Hierzu soll ein methodenkritisches Verständnis empirisch-wissenschaftlichen Arbeitens entwickelt werden. Zugleich ist das Wahlfach auch ein Vorbereitungsmodul für das JLU TRAINEE-Programm des FB Medizin.
+
+Veranstaltungsform:
+Blockveranstaltung an drei Tagen
+
+Termine:
+14.05.2026
+16.05.2026
+04.06.2026
+
+Uhrzeit:
+jeweils 9–16 Uhr
+
+Leistungsnachweis:
+zeitlimitierte Individualarbeit
+
+Format des Leistungsnachweises:
+online, Präsenz nicht erforderlich
+
+Prüfungstermin:
+13.06.2026
+
+Wiederholungstermin:
+18.07.2026`;
+
+    const els = {
+      apiKey: document.getElementById('apiKey'),
+      baseUrl: document.getElementById('baseUrl'),
+      model: document.getElementById('model'),
+      saveKey: document.getElementById('saveKey'),
+      rawInput: document.getElementById('rawInput'),
+      parseBtn: document.getElementById('parseBtn'),
+      useExampleBtn: document.getElementById('useExampleBtn'),
+      clearAllBtn: document.getElementById('clearAllBtn'),
+      status: document.getElementById('status'),
+      eventList: document.getElementById('eventList'),
+      emptyState: document.getElementById('emptyState'),
+      manualTitle: document.getElementById('manualTitle'),
+      manualStartDate: document.getElementById('manualStartDate'),
+      manualStartTime: document.getElementById('manualStartTime'),
+      manualEndDate: document.getElementById('manualEndDate'),
+      manualEndTime: document.getElementById('manualEndTime'),
+      manualAllDay: document.getElementById('manualAllDay'),
+      manualLocation: document.getElementById('manualLocation'),
+      manualDescription: document.getElementById('manualDescription'),
+      manualAlarm: document.getElementById('manualAlarm'),
+      manualFilename: document.getElementById('manualFilename'),
+      addManualBtn: document.getElementById('addManualBtn')
+    };
+
+    let events = [];
+
+    function pad(n) {
+      return String(n).padStart(2, '0');
+    }
+
+    function setStatus(msg, cls = '') {
+      els.status.className = `status ${cls}`.trim();
+      els.status.textContent = msg;
+    }
+
+    function escapeICSText(text) {
+      return String(text || '')
+        .replace(/\\/g, '\\\\')
+        .replace(/\n/g, '\\n')
+        .replace(/,/g, '\\,')
+        .replace(/;/g, '\\;');
+    }
+
+    function foldLine(line) {
+      const max = 74;
+      if (line.length <= max) return line;
+      let out = '';
+      for (let i = 0; i < line.length; i += max) {
+        out += (i === 0 ? '' : '\r\n ') + line.slice(i, i + max);
+      }
+      return out;
+    }
+
+    function formatDateBasic(dateStr) {
+      return String(dateStr || '').replace(/-/g, '');
+    }
+
+    function formatDateTimeLocal(dateStr, timeStr) {
+      return `${formatDateBasic(dateStr)}T${String(timeStr || '00:00').replace(':', '')}00`;
+    }
+
+    function formatDateTimeUTC(date = new Date()) {
+      return `${date.getUTCFullYear()}${pad(date.getUTCMonth() + 1)}${pad(date.getUTCDate())}T${pad(date.getUTCHours())}${pad(date.getUTCMinutes())}${pad(date.getUTCSeconds())}Z`;
+    }
+
+    function addDays(dateStr, days) {
+      const d = new Date(`${dateStr}T00:00:00`);
+      d.setDate(d.getDate() + days);
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    }
+
+    function slugifyFilename(name) {
+      const base = String(name || 'termin')
+        .toLowerCase()
+        .trim()
+        .replace(/[^a-z0-9äöüß\s_-]/gi, '')
+        .replace(/\s+/g, '-')
+        .replace(/-+/g, '-');
+      return (base || 'termin') + '.ics';
+    }
+
+    function safeJsonParse(text) {
+      try {
+        return JSON.parse(text);
+      } catch (_) {
+        const match = text.match(/```json\s*([\s\S]*?)```/i) || text.match(/```\s*([\s\S]*?)```/i);
+        if (match) return JSON.parse(match[1]);
+        const start = text.indexOf('{');
+        const end = text.lastIndexOf('}');
+        if (start !== -1 && end !== -1 && end > start) {
+          return JSON.parse(text.slice(start, end + 1));
+        }
+        throw new Error('Die Modellantwort konnte nicht als JSON gelesen werden.');
+      }
+    }
+
+    function normalizeDate(value) {
+      if (!value) return '';
+      const s = String(value).trim();
+      if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+      const m = s.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+      if (m) return `${m[3]}-${pad(m[2])}-${pad(m[1])}`;
+      return '';
+    }
+
+    function normalizeTime(value) {
+      if (!value) return '';
+      const s = String(value).trim().replace('.', ':');
+      if (/^\d{1,2}:\d{2}$/.test(s)) {
+        const [h, m] = s.split(':');
+        return `${pad(h)}:${pad(m)}`;
+      }
+      if (/^\d{1,2}$/.test(s)) return `${pad(s)}:00`;
+      return '';
+    }
+
+    function validateEventObject(ev) {
+      if (!ev || typeof ev !== 'object') throw new Error('Ungültiger Termin gefunden.');
+      if (!String(ev.title || '').trim()) throw new Error('Ein Termin hat keinen Titel.');
+      ev.startDate = normalizeDate(ev.startDate);
+      ev.endDate = normalizeDate(ev.endDate || ev.startDate);
+      ev.startTime = normalizeTime(ev.startTime);
+      ev.endTime = normalizeTime(ev.endTime);
+      ev.allDay = !!ev.allDay;
+      ev.description = String(ev.description || '');
+      ev.location = String(ev.location || '');
+      ev.sourceText = String(ev.sourceText || '');
+      ev.filename = String(ev.filename || ev.title || 'termin');
+      ev.alarmMinutes = ev.alarmMinutes === null || ev.alarmMinutes === undefined || ev.alarmMinutes === '' ? '' : String(ev.alarmMinutes);
+      ev.repeat = normalizeRepeat(ev.repeat);
+
+      if (!ev.startDate) throw new Error(`Termin "${ev.title}" hat kein gültiges Startdatum.`);
+      if (!ev.endDate) ev.endDate = ev.startDate;
+
+      if (!ev.allDay) {
+        if (!ev.startTime || !ev.endTime) throw new Error(`Termin "${ev.title}" benötigt Start- und Enduhrzeit oder allDay=true.`);
+        const start = new Date(`${ev.startDate}T${ev.startTime}:00`);
+        const end = new Date(`${ev.endDate}T${ev.endTime}:00`);
+        if (!(end > start)) throw new Error(`Termin "${ev.title}" hat ein Ende vor oder gleich Beginn.`);
+      } else if (ev.endDate < ev.startDate) {
+        throw new Error(`Termin "${ev.title}" hat ein Enddatum vor dem Startdatum.`);
+      }
+
+      return ev;
+    }
+
+    function normalizeRepeat(repeat) {
+      if (!repeat || typeof repeat !== 'object') return null;
+      const freq = String(repeat.freq || '').toUpperCase().trim();
+      if (!freq || freq === 'NONE') return null;
+      const out = { freq };
+      const allowed = ['DAILY', 'WEEKLY', 'MONTHLY', 'YEARLY'];
+      if (!allowed.includes(freq)) return null;
+      const interval = Number(repeat.interval || 1);
+      if (Number.isFinite(interval) && interval > 1) out.interval = Math.floor(interval);
+      if (Array.isArray(repeat.byday) && repeat.byday.length) {
+        out.byday = repeat.byday.map(v => String(v).toUpperCase().trim()).filter(Boolean);
+      }
+      if (repeat.until) {
+        const until = normalizeDate(repeat.until);
+        if (until) out.until = until;
+      }
+      if (repeat.count) {
+        const count = Number(repeat.count);
+        if (Number.isFinite(count) && count > 0) out.count = Math.floor(count);
+      }
+      return out;
+    }
+
+    function buildRRULE(ev) {
+      if (!ev.repeat) return '';
+      const parts = [`FREQ=${ev.repeat.freq}`];
+      if (ev.repeat.interval) parts.push(`INTERVAL=${ev.repeat.interval}`);
+      if (ev.repeat.byday && ev.repeat.byday.length) parts.push(`BYDAY=${ev.repeat.byday.join(',')}`);
+      if (ev.repeat.until) parts.push(`UNTIL=${formatDateBasic(ev.repeat.until)}T235959Z`);
+      if (ev.repeat.count) parts.push(`COUNT=${ev.repeat.count}`);
+      return `RRULE:${parts.join(';')}`;
+    }
+
+    function buildICS(ev) {
+      const event = validateEventObject({ ...ev });
+      const uid = `${crypto.randomUUID ? crypto.randomUUID() : Date.now() + '-' + Math.random().toString(16).slice(2)}@local-ics-exporter`;
+      const dtstamp = formatDateTimeUTC(new Date());
+      const title = escapeICSText(event.title.trim());
+      const location = escapeICSText(event.location.trim());
+      const description = escapeICSText(event.description.trim());
+      const alarm = event.alarmMinutes ? Number(event.alarmMinutes) : null;
+
+      const lines = [
+        'BEGIN:VCALENDAR',
+        'VERSION:2.0',
+        'CALSCALE:GREGORIAN',
+        'PRODID:-//Local HTML Apple Calendar ICS Multi Exporter//DE',
+        'METHOD:PUBLISH',
+        'BEGIN:VEVENT',
+        `UID:${uid}`,
+        `DTSTAMP:${dtstamp}`,
+        `SUMMARY:${title}`
+      ];
+
+      if (event.allDay) {
+        lines.push(`DTSTART;VALUE=DATE:${formatDateBasic(event.startDate)}`);
+        lines.push(`DTEND;VALUE=DATE:${formatDateBasic(addDays(event.endDate, 1))}`);
+      } else {
+        lines.push(`DTSTART:${formatDateTimeLocal(event.startDate, event.startTime)}`);
+        lines.push(`DTEND:${formatDateTimeLocal(event.endDate, event.endTime)}`);
+      }
+
+      if (location) lines.push(`LOCATION:${location}`);
+      if (description) lines.push(`DESCRIPTION:${description}`);
+      const rrule = buildRRULE(event);
+      if (rrule) lines.push(rrule);
+
+      if (alarm) {
+        lines.push('BEGIN:VALARM');
+        lines.push(`TRIGGER:-PT${alarm}M`);
+        lines.push('ACTION:DISPLAY');
+        lines.push(`DESCRIPTION:Erinnerung: ${title}`);
+        lines.push('END:VALARM');
+      }
+
+      lines.push('END:VEVENT');
+      lines.push('END:VCALENDAR');
+      return lines.map(foldLine).join('\r\n') + '\r\n';
+    }
+
+    function downloadICS(ev) {
+      const ics = buildICS(ev);
+      const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = slugifyFilename(ev.filename || ev.title || 'termin');
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 1500);
+    }
+
+    function eventSummary(ev) {
+      const datePart = ev.allDay
+        ? `${ev.startDate}${ev.endDate && ev.endDate !== ev.startDate ? ` bis ${ev.endDate}` : ''} · ganztägig`
+        : `${ev.startDate} ${ev.startTime} bis ${ev.endDate} ${ev.endTime}`;
+      return [datePart, ev.location || 'Kein Ort', ev.repeat ? `Wiederholung: ${ev.repeat.freq}` : 'Ohne Wiederholung'].join(' · ');
+    }
+
+    function prettyInfo(ev) {
+      return [
+        `Titel: ${ev.title}`,
+        `Von: ${ev.startDate}${ev.allDay ? ' (ganztägig)' : ' ' + ev.startTime}`,
+        `Bis: ${ev.endDate}${ev.allDay ? ' (ganztägig)' : ' ' + ev.endTime}`,
+        `Ort: ${ev.location || '-'}`,
+        `Beschreibung: ${ev.description || '-'}`,
+        `Erinnerung: ${ev.alarmMinutes ? ev.alarmMinutes + ' Minuten vorher' : '-'}`,
+        `Wiederholung: ${ev.repeat ? JSON.stringify(ev.repeat, null, 2) : '-'}`,
+        `Dateiname: ${slugifyFilename(ev.filename || ev.title || 'termin')}`,
+        `Quelle: ${ev.sourceText || '-'}`
+      ].join('\n');
+    }
+
+    function addEvents(newEvents, sourceLabel = '') {
+      const prepared = newEvents.map((ev, index) => {
+        const base = validateEventObject({ ...ev });
+        return {
+          id: `${Date.now()}_${Math.random().toString(16).slice(2)}_${index}`,
+          ...base,
+          sourceLabel
+        };
+      });
+      events = [...events, ...prepared];
+      renderEvents();
+    }
+
+    function removeEvent(id) {
+      events = events.filter(ev => ev.id !== id);
+      renderEvents();
+    }
+
+    function renderEvents() {
+      els.eventList.innerHTML = '';
+      els.emptyState.classList.toggle('hidden', events.length > 0);
+
+      events.forEach((ev, idx) => {
+        const item = document.createElement('div');
+        item.className = 'event-item';
+        item.innerHTML = `
+          <div class="event-head">
+            <div>
+              <div class="event-title">${idx + 1}. ${escapeHtml(ev.title)}</div>
+              <div class="event-meta">${escapeHtml(eventSummary(ev))}</div>
+            </div>
+            <div class="event-meta">${escapeHtml(ev.sourceLabel || 'Lokal')}</div>
+          </div>
+          <div class="tag-row">
+            <span class="tag">${ev.allDay ? 'Ganztägig' : 'Mit Uhrzeit'}</span>
+            <span class="tag">${ev.alarmMinutes ? `Alarm ${escapeHtml(String(ev.alarmMinutes))} min` : 'Kein Alarm'}</span>
+            <span class="tag">${ev.repeat ? `RRULE ${escapeHtml(ev.repeat.freq)}` : 'Einmalig'}</span>
+          </div>
+          <div class="event-actions">
+            <button class="btn-secondary" data-action="toggle-info">Info</button>
+            <button class="btn-secondary" data-action="toggle-preview">ICS Vorschau</button>
+            <button class="btn-primary" data-action="download">ICS herunterladen</button>
+            <button class="btn-danger" data-action="delete">Entfernen</button>
+          </div>
+          <div class="details-box hidden"></div>
+          <div class="preview-box hidden"></div>
+        `;
+
+        const infoBox = item.querySelector('.details-box');
+        const previewBox = item.querySelector('.preview-box');
+
+        item.addEventListener('click', (e) => {
+          const btn = e.target.closest('button');
+          if (!btn) return;
+          const action = btn.dataset.action;
+          try {
+            if (action === 'toggle-info') {
+              infoBox.textContent = prettyInfo(ev);
+              infoBox.classList.toggle('hidden');
+            }
+            if (action === 'toggle-preview') {
+              previewBox.textContent = buildICS(ev);
+              previewBox.classList.toggle('hidden');
+            }
+            if (action === 'download') {
+              downloadICS(ev);
+              setStatus(`ICS-Datei für "${ev.title}" wurde heruntergeladen.`, 'ok');
+            }
+            if (action === 'delete') {
+              removeEvent(ev.id);
+              setStatus(`Termin "${ev.title}" wurde entfernt.`, 'warn');
+            }
+          } catch (err) {
+            setStatus(err.message || 'Aktion fehlgeschlagen.', 'error');
+          }
+        });
+
+        els.eventList.appendChild(item);
+      });
+    }
+
+    function escapeHtml(str) {
+      return String(str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function buildPrompt(rawText) {
+      return `Extrahiere aus dem folgenden deutschen Text einzelne kalenderfähige Termine. Gib ausschließlich valides JSON zurück. Keine Markdown-Blöcke. Kein erklärender Text.\n\nErwartetes JSON-Schema:\n{\n  "events": [\n    {\n      "title": "string",\n      "startDate": "YYYY-MM-DD",\n      "startTime": "HH:MM oder leer bei ganztägig",\n      "endDate": "YYYY-MM-DD",\n      "endTime": "HH:MM oder leer bei ganztägig",\n      "allDay": false,\n      "location": "string",\n      "description": "string",\n      "alarmMinutes": "5|10|15|30|60|1440|leer",\n      "filename": "string",\n      "sourceText": "kurzer Quellhinweis aus dem Input",\n      "repeat": null\n    }\n  ]\n}\n\nRegeln:\n- Jeder Termin einzeln.\n- Blockveranstaltung an mehreren Daten = mehrere separate Events.\n- Prüfung und Wiederholungstermin als eigene separate Events.\n- Wenn dieselbe Uhrzeit für mehrere Daten gilt, auf alle passenden Termine anwenden.\n- Bei fehlendem Ort leeren String setzen.\n- Beschreibung knapp, aber sinnvoll. Relevante Kontextinformationen integrieren.\n- Wenn kein Alarm explizit genannt ist, alarmMinutes leer lassen.\n- Für repeat nur dann ein Objekt setzen, wenn wirklich eine Wiederholung ausdrücklich vorliegt. Sonst null.\n- Antworte nur mit JSON.\n\nText:\n${rawText}`;
+    }
+
+    async function parseWithLLM() {
+      const apiKey = els.apiKey.value.trim();
+      const baseUrl = els.baseUrl.value.trim().replace(/\/$/, '');
+      const model = els.model.value.trim();
+      const rawText = els.rawInput.value.trim();
+
+      if (!apiKey) {
+        setStatus('Bitte einen API-Key eingeben.', 'error');
+        return;
+      }
+      if (!baseUrl) {
+        setStatus('Bitte eine Base-URL eingeben.', 'error');
+        return;
+      }
+      if (!model) {
+        setStatus('Bitte ein Modell eingeben.', 'error');
+        return;
+      }
+      if (!rawText) {
+        setStatus('Bitte Rohtext für die Terminextraktion einfügen.', 'error');
+        return;
+      }
+
+      persistSettings();
+      setStatus('Modell wird aufgerufen und die Termine werden extrahiert ...', 'warn');
+      els.parseBtn.disabled = true;
+
+      try {
+        const response = await fetch(`${baseUrl}/v1/chat/completions`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`
+          },
+          body: JSON.stringify({
+            model,
+            temperature: 0,
+            messages: [
+              {
+                role: 'system',
+                content: 'Du extrahierst Kalendertermine präzise und antwortest ausschließlich als valides JSON.'
+              },
+              {
+                role: 'user',
+                content: buildPrompt(rawText)
+              }
+            ]
+          })
+        });
+
+        if (!response.ok) {
+          const txt = await response.text();
+          throw new Error(`API-Fehler ${response.status}: ${txt || 'Unbekannter Fehler'}`);
+        }
+
+        const data = await response.json();
+        const content = data?.choices?.[0]?.message?.content;
+        if (!content) throw new Error('Die API hat keine auswertbare Modellantwort geliefert.');
+
+        const parsed = safeJsonParse(content);
+        if (!parsed || !Array.isArray(parsed.events)) {
+          throw new Error('Die Modellantwort enthält kein events-Array.');
+        }
+        if (parsed.events.length === 0) {
+          throw new Error('Das Modell hat keine Termine erkannt.');
+        }
+
+        addEvents(parsed.events, 'LLM-Extraktion');
+        setStatus(`${parsed.events.length} Termin(e) wurden extrahiert und lokal hinzugefügt.`, 'ok');
+      } catch (err) {
+        setStatus(err.message || 'Fehler bei der Terminextraktion.', 'error');
+      } finally {
+        els.parseBtn.disabled = false;
+      }
+    }
+
+    function addManualEvent() {
+      try {
+        const ev = {
+          title: els.manualTitle.value.trim(),
+          startDate: els.manualStartDate.value,
+          startTime: els.manualStartTime.value,
+          endDate: els.manualEndDate.value,
+          endTime: els.manualEndTime.value,
+          allDay: els.manualAllDay.checked,
+          location: els.manualLocation.value.trim(),
+          description: els.manualDescription.value.trim(),
+          alarmMinutes: els.manualAlarm.value,
+          filename: els.manualFilename.value.trim() || els.manualTitle.value.trim(),
+          sourceText: 'Manuell hinzugefügt',
+          repeat: null
+        };
+        addEvents([ev], 'Manuell');
+        setStatus(`Termin "${ev.title}" wurde hinzugefügt.`, 'ok');
+      } catch (err) {
+        setStatus(err.message || 'Manueller Termin konnte nicht hinzugefügt werden.', 'error');
+      }
+    }
+
+    function clearAll() {
+      events = [];
+      renderEvents();
+      els.rawInput.value = '';
+      els.manualTitle.value = '';
+      els.manualStartDate.value = '';
+      els.manualStartTime.value = '';
+      els.manualEndDate.value = '';
+      els.manualEndTime.value = '';
+      els.manualAllDay.checked = false;
+      els.manualLocation.value = '';
+      els.manualDescription.value = '';
+      els.manualAlarm.value = '';
+      els.manualFilename.value = '';
+      localStorage.removeItem(STORAGE_KEYS.rawInput);
+      setStatus('Eingaben und lokale Terminliste wurden geleert.', 'warn');
+    }
+
+    function persistSettings() {
+      localStorage.setItem(STORAGE_KEYS.baseUrl, els.baseUrl.value);
+      localStorage.setItem(STORAGE_KEYS.model, els.model.value);
+      localStorage.setItem(STORAGE_KEYS.rawInput, els.rawInput.value);
+      localStorage.setItem(STORAGE_KEYS.saveKey, els.saveKey.checked ? '1' : '0');
+      if (els.saveKey.checked) {
+        localStorage.setItem(STORAGE_KEYS.apiKey, els.apiKey.value);
+      } else {
+        localStorage.removeItem(STORAGE_KEYS.apiKey);
+      }
+    }
+
+    function loadSettings() {
+      els.baseUrl.value = localStorage.getItem(STORAGE_KEYS.baseUrl) || els.baseUrl.value;
+      els.model.value = localStorage.getItem(STORAGE_KEYS.model) || els.model.value;
+      els.rawInput.value = localStorage.getItem(STORAGE_KEYS.rawInput) || '';
+      els.saveKey.checked = localStorage.getItem(STORAGE_KEYS.saveKey) === '1';
+      if (els.saveKey.checked) {
+        els.apiKey.value = localStorage.getItem(STORAGE_KEYS.apiKey) || '';
+      }
+    }
+
+    els.parseBtn.addEventListener('click', parseWithLLM);
+    els.useExampleBtn.addEventListener('click', () => {
+      els.rawInput.value = exampleText;
+      persistSettings();
+      setStatus('Beispieltext wurde eingefügt.', 'ok');
+    });
+    els.clearAllBtn.addEventListener('click', clearAll);
+    els.addManualBtn.addEventListener('click', addManualEvent);
+    els.saveKey.addEventListener('change', persistSettings);
+    els.apiKey.addEventListener('input', () => { if (els.saveKey.checked) persistSettings(); });
+    els.baseUrl.addEventListener('input', persistSettings);
+    els.model.addEventListener('input', persistSettings);
+    els.rawInput.addEventListener('input', persistSettings);
+
+    loadSettings();
+    renderEvents();
+  </script>
+</body>
+</html>
